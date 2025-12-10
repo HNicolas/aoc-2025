@@ -34,7 +34,7 @@ fn solve2(input: &str) -> i32 {
 }
 
 pub fn run() {
-    let input = std::fs::read_to_string("./src/day01/input.txt").expect("Error reading inpu file");
+    let input = std::fs::read_to_string("./src/day01/input.txt").expect("Error reading input file");
     let result = solve1(&input);
     println!("Day 1 solution 1 is {result}");
     let result = solve2(&input);
@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn test_part_one() {
         let input =
-            std::fs::read_to_string("./src/day01/sample.txt").expect("Error reading inpu file");
+            std::fs::read_to_string("./src/day01/sample.txt").expect("Error reading input file");
         let result = solve1(&input);
         assert_eq!(result, 3);
     }
@@ -56,7 +56,7 @@ mod tests {
     #[test]
     fn test_part_two() {
         let input =
-            std::fs::read_to_string("./src/day01/sample.txt").expect("Error reading inpu file");
+            std::fs::read_to_string("./src/day01/sample.txt").expect("Error reading input file");
         let result = solve2(&input);
         assert_eq!(result, 6);
     }
