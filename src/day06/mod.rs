@@ -30,20 +30,27 @@ pub fn solve2(input: &str) -> usize {
     let mut column = 0;
     while column < grid[0].len() {
         let operator = grid[grid.len() - 1][column];
-        let mut operation_result = String::with_capacity(grid.len() - 1);
+        let mut operation_result = Vec::with_capacity(grid.len() - 1);
         for row in 0..grid.len() - 1 {
-            if grid[row][column].is_digit(10) {
-                operation_result.push(grid[row][column]);
+            if let Some(digit) = grid[row][column].to_digit(10) {
+                operation_result.push(digit);
             }
         }
-        let mut operation_result = operation_result.parse::<usize>().unwrap();
+        let mut operation_result =
+            operation_result
+                .iter()
+                .enumerate()
+                .fold(0, |acc, (index, &digit)| {
+                    acc + usize::try_from(digit).unwrap()
+                        * 10usize.pow(u32::try_from(operation_result.len() - 1 - index).unwrap())
+                });
         column += 1;
 
         while column < grid[0].len() {
-            let mut value = String::with_capacity(grid.len() - 1);
+            let mut value = Vec::with_capacity(grid.len() - 1);
             for row in 0..grid.len() - 1 {
-                if grid[row][column].is_digit(10) {
-                    value.push(grid[row][column]);
+                if let Some(digit) = grid[row][column].to_digit(10) {
+                    value.push(digit);
                 }
             }
             column += 1;
@@ -52,7 +59,10 @@ pub fn solve2(input: &str) -> usize {
                 break;
             }
 
-            let value = value.parse::<usize>().unwrap();
+            let value = value.iter().enumerate().fold(0, |acc, (index, &digit)| {
+                acc + usize::try_from(digit).unwrap()
+                    * 10usize.pow(u32::try_from(value.len() - 1 - index).unwrap())
+            });
             match operator {
                 '*' => operation_result *= value,
                 '+' => operation_result += value,
@@ -66,8 +76,7 @@ pub fn solve2(input: &str) -> usize {
 }
 
 pub fn run() {
-    let input =
-        std::fs::read_to_string("./src/day06/input.txt").expect("Error reading input file");
+    let input = std::fs::read_to_string("./src/day06/input.txt").expect("Error reading input file");
     let result = solve(&input);
     println!("Day 6 solution 1 is {result}");
     let result = solve2(&input);
