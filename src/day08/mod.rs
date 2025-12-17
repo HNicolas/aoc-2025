@@ -40,28 +40,32 @@ fn solve(input: &str, jonction_count: usize) -> usize {
     for pair in sorted_pairs.take(jonction_count) {
         let first_box_circuit = circuit_ids[pair.0];
         let second_box_circuit = circuit_ids[pair.1];
-        if first_box_circuit > 0 {
-            if second_box_circuit > 0 {
-                if first_box_circuit == second_box_circuit {
-                    continue;
-                }
+        match (first_box_circuit, second_box_circuit) {
+            (0, 0) => {
+                // update both with and increment circuit index
+                circuit_id += 1;
+                circuit_ids[pair.0] = circuit_id;
+                circuit_ids[pair.1] = circuit_id;
+            }
+            (0, _) => {
+                // add first box to circuit
+                circuit_ids[pair.0] = second_box_circuit;
+            }
+            (_, 0) => {
+                // add second box to circuit
+                circuit_ids[pair.1] = first_box_circuit;
+            }
+            (x, y) if x != y => {
                 // merge circuits
                 circuit_ids
                     .iter_mut()
                     .filter(|circuit_id| **circuit_id == second_box_circuit)
                     .for_each(|circuit_id| *circuit_id = first_box_circuit);
-            } else {
-                // add second box to circuit
-                circuit_ids[pair.1] = first_box_circuit;
             }
-        } else if second_box_circuit > 0 {
-            // add first box to circuit
-            circuit_ids[pair.0] = second_box_circuit;
-        } else {
-            // update both with and increment circuit index
-            circuit_id += 1;
-            circuit_ids[pair.0] = circuit_id;
-            circuit_ids[pair.1] = circuit_id;
+            _ => {
+                // same circuit
+                continue;
+            }
         }
     }
 
@@ -106,33 +110,37 @@ fn solve2(input: &str) -> isize {
     for pair in sorted_pairs {
         let first_box_circuit = circuit_ids[pair.0];
         let second_box_circuit = circuit_ids[pair.1];
-        if first_box_circuit > 0 {
-            if second_box_circuit > 0 {
-                if first_box_circuit == second_box_circuit {
-                    continue;
-                }
+        match (first_box_circuit, second_box_circuit) {
+            (0, 0) => {
+                // update both with and increment circuit index
+                circuit_id += 1;
+                circuit_ids[pair.0] = circuit_id;
+                circuit_ids[pair.1] = circuit_id;
+                circuit_count += 1;
+                connected_boxes += 2;
+            }
+            (0, _) => {
+                // add first box to circuit
+                circuit_ids[pair.0] = second_box_circuit;
+                connected_boxes += 1;
+            }
+            (_, 0) => {
+                // add second box to circuit
+                circuit_ids[pair.1] = first_box_circuit;
+                connected_boxes += 1;
+            }
+            (x, y) if x != y => {
                 // merge circuits
                 circuit_ids
                     .iter_mut()
                     .filter(|circuit_id| **circuit_id == second_box_circuit)
                     .for_each(|circuit_id| *circuit_id = first_box_circuit);
                 circuit_count -= 1;
-            } else {
-                // add second box to circuit
-                circuit_ids[pair.1] = first_box_circuit;
-                connected_boxes += 1;
             }
-        } else if second_box_circuit > 0 {
-            // add first box to circuit
-            circuit_ids[pair.0] = second_box_circuit;
-            connected_boxes += 1;
-        } else {
-            // update both with and increment circuit index
-            circuit_id += 1;
-            circuit_ids[pair.0] = circuit_id;
-            circuit_ids[pair.1] = circuit_id;
-            circuit_count += 1;
-            connected_boxes += 2;
+            _ => {
+                // same circuit
+                continue;
+            }
         }
 
         // check condition
