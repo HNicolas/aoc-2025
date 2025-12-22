@@ -1,155 +1,157 @@
+use std::collections::HashMap;
+
 struct Machine {
-    indicator_lights: u16,
-    button_wirings: Vec<u16>,
+    lights: u16,
+    buttons: Vec<Vec<usize>>,
+    counters: Vec<u16>,
 }
 
 impl Machine {
-    fn from_line(line: &str) -> Self {
-        let (indicator_lights, rest) = line.split_once("] ").unwrap();
-        let indicator_lights =
-            indicator_lights
-                .chars()
-                .skip(1)
-                .enumerate()
-                .fold(0u16, |acc, (index, value)| match value {
-                    '#' => acc + 2u16.pow(u32::try_from(index).unwrap()),
-                    _ => acc,
-                });
+    fn parse(line: &str) -> Self {
+        let (lights, rest) = line.split_once("] ").unwrap();
+        let lights = lights[1..]
+            .chars()
+            .enumerate()
+            .fold(0u16, |acc, (index, c)| {
+                acc + if c == '#' { 1 << index } else { 0 }
+            });
 
-        let (rest, _) = rest.split_once(") {").unwrap();
-        let button_wirings = rest
-            .split(") ")
-            .map(|values| {
-                values[1..]
-                    .split(',')
-                    .map(|number| number.parse::<u16>().unwrap())
-                    .fold(0u16, |acc, index| acc + 2u16.pow(index.into()))
-            })
-            .collect::<Vec<_>>();
-
-        Self {
-            indicator_lights,
-            button_wirings,
-        }
-    }
-
-    /// Give index of pressed buttons
-    fn solve_indicator_lights(self: &Self) -> Vec<usize> {
-        let mut states = vec![(0u16, Vec::<usize>::new())];
-        let mut seen = std::collections::HashSet::from([0u16]);
-
-        loop {
-            let mut next_states = Vec::new();
-            for (light, pressed_buttons) in states.iter() {
-                for (button_index, button) in self.button_wirings.iter().enumerate() {
-                    let light = light ^ button;
-
-                    if !seen.insert(light) {
-                        continue;
-                    }
-
-                    let mut pressed_buttons = pressed_buttons.clone();
-                    pressed_buttons.push(button_index);
-
-                    if light == self.indicator_lights {
-                        return pressed_buttons;
-                    }
-
-                    next_states.push((light, pressed_buttons));
-                }
-            }
-            states = next_states;
-        }
-    }
-}
-
-fn solve(input: &str) -> usize {
-    input
-        .lines()
-        .map(|line| Machine::from_line(line))
-        .fold(0, |acc, machine| {
-            acc + machine.solve_indicator_lights().len()
-        })
-}
-
-// there is an equivalent light pattern for the joltage counters (parity odd -> # even -> .)
-// find all solutions to solve this pattern using part 1
-// subtract pushed buttons from counters
-// divide by 2 if not all 0 repeat
-// https://old.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_2_bifurcate_your_way_to_victory/
-fn solve2(input: &str) -> usize {
-    input.lines().fold(0usize, |acc, line| {
-        let (buttons, joltage_levels) = line.split_once("] ").unwrap().1.split_once(") {").unwrap();
-
+        let (buttons, counters) = rest.split_once(" {").unwrap();
         let buttons = buttons
-            .split(") ")
-            .map(|values| {
-                values[1..]
+            .split_ascii_whitespace()
+            .map(|button| {
+                button
+                    .trim_matches(['(', ')'])
                     .split(',')
-                    .map(|number| number.parse::<usize>().unwrap())
+                    .map(|value| value.parse::<usize>().unwrap())
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
-        let button_wirings = buttons
-            .iter()
-            .map(|button| {
-                button.iter().fold(0u16, |acc, index| {
-                    acc + 2u16.pow(u32::try_from(*index).unwrap())
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let mut joltage_levels = joltage_levels[..joltage_levels.len() - 1]
+        let counters = counters[..counters.len() - 1]
             .split(',')
             .map(|value| value.parse::<u16>().unwrap())
             .collect::<Vec<_>>();
 
-        let mut press_count = 0;
-        let mut press_factor = 1;
+        Machine {
+            lights,
+            buttons,
+            counters,
+        }
+    }
+}
 
-        while joltage_levels
-            .iter()
-            .any(|joltage_level| *joltage_level > 0)
-        {
-            println!("{joltage_levels:?}");
-            let light_equivalent =
-                joltage_levels
-                    .iter()
-                    .enumerate()
-                    .fold(0u16, |acc, (index, value)| {
-                        if value % 2 == 0 {
-                            acc
-                        } else {
-                            acc + 2u16.pow(u32::try_from(index).unwrap())
-                        }
-                    });
-            if light_equivalent == 0 {
-                joltage_levels = joltage_levels.iter().map(|l| l / 2).collect();
-                press_factor *= 2;
-                continue;
+fn get_button_value(button: &[usize]) -> u16 {
+    button.iter().fold(0u16, |acc, value| acc + (1 << *value))
+}
+
+fn get_valid_combinations<'a>(
+    lights: &u16,
+    buttons: &'a Vec<Vec<usize>>,
+) -> Vec<Vec<&'a Vec<usize>>> {
+    let button_values = buttons
+        .iter()
+        .map(|button| get_button_value(button))
+        .collect::<Vec<_>>();
+
+    let mut valid_combinations = vec![];
+
+    // all valid solutions are a combination of some buttons pressed at most once
+    for n in 0..2u16.pow(u32::try_from(buttons.len()).unwrap()) {
+        let mut pressed_buttons = vec![];
+        let mut result = 0;
+        for i in 0..buttons.len() {
+            if (n >> i) & 1 == 1 {
+                result ^= button_values[i];
+                pressed_buttons.push(&buttons[i]);
             }
+        }
+        if result == *lights {
+            valid_combinations.push(pressed_buttons);
+        }
+    }
 
-            let machine = Machine {
-                button_wirings: button_wirings.clone(),
-                indicator_lights: light_equivalent,
-            };
+    valid_combinations
+}
 
-            // TODO: get all solutions to find the best one
-            let pressed_buttons = machine.solve_indicator_lights();
-            println!("{pressed_buttons:?} {press_factor}");
-            press_count += pressed_buttons.len() * press_factor;
+fn counters_to_lights(counters: &Vec<u16>) -> u16 {
+    counters
+        .iter()
+        .enumerate()
+        .fold(0u16, |acc, (index, value)| {
+            acc + if value % 2 == 0 { 0 } else { 1 << index }
+        })
+}
 
-            for &button_index in pressed_buttons.iter() {
-                for &counter_index in buttons[button_index].iter() {
-                    joltage_levels[counter_index] -= 1;
+fn solve_counters_cached(
+    counters: &Vec<u16>,
+    buttons: &Vec<Vec<usize>>,
+    cache: &mut HashMap<Vec<u16>, Option<usize>>,
+) -> Option<usize> {
+    if let Some(&result) = cache.get(counters) {
+        return result;
+    }
+
+    if counters.iter().all(|counter| *counter == 0) {
+        cache.insert(counters.clone(), Some(0));
+        return Some(0);
+    }
+
+    let lights = counters_to_lights(&counters);
+    let combinations = get_valid_combinations(&lights, buttons);
+    let mut solutions = vec![];
+    'combination: for combination in combinations {
+        let mut next_counters = counters.clone();
+        for button in combination.iter() {
+            for &counter_index in button.iter() {
+                if next_counters[counter_index] > 0 {
+                    next_counters[counter_index] -= 1;
+                } else {
+                    // invalid combination, go to the next one
+                    continue 'combination;
                 }
             }
         }
 
-        println!("pressed {press_count} buttons");
+        if next_counters.iter().all(|value| *value % 2 == 0) {
+            let halved: Vec<u16> = next_counters.iter().map(|value| *value / 2).collect();
+            if let Some(solution) = solve_counters_cached(&halved, buttons, cache) {
+                solutions.push(combination.len() + 2 * solution);
+            }
+        }
+    }
 
-        acc + press_count
+    let result = solutions.iter().min().copied();
+    cache.insert(counters.clone(), result);
+    result
+}
+
+fn solve_counters(counters: &Vec<u16>, buttons: &Vec<Vec<usize>>) -> Option<usize> {
+    let mut cache = HashMap::new();
+    solve_counters_cached(counters, buttons, &mut cache)
+}
+
+/// This solution can be improved by starting with solutions with few button press
+/// and stopping iteration after first find
+fn solve(input: &str) -> usize {
+    let machines = input.lines().map(|line| Machine::parse(line));
+    let mut result = 0;
+    for machine in machines {
+        let combinations = get_valid_combinations(&machine.lights, &machine.buttons);
+        result += combinations
+            .iter()
+            .min_by(|a, b| a.len().cmp(&b.len()))
+            .unwrap()
+            .len();
+    }
+    result
+}
+
+fn solve2(input: &str) -> usize {
+    input.lines().fold(0usize, |acc, line| {
+        let machine = Machine::parse(line);
+        let results = solve_counters(&machine.counters, &machine.buttons);
+        acc + results.unwrap()
     })
 }
 
@@ -158,14 +160,14 @@ pub fn run() {
     let timer = std::time::Instant::now();
     let result = solve(&input);
     println!(
-        "Day 10 solution 1 is {result} in {}us",
-        timer.elapsed().as_micros()
+        "Day 10 solution 1 is {result} {}ms",
+        timer.elapsed().as_millis()
     );
     let timer = std::time::Instant::now();
     let result = solve2(&input);
     println!(
-        "Day 10 solution 2 is {result} in {}us",
-        timer.elapsed().as_micros()
+        "Day 10 solution 2 is {result} {}ms",
+        timer.elapsed().as_millis()
     );
 }
 
